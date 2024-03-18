@@ -75,6 +75,15 @@ class Game:
         for kill_area in self.kill_areas:
             kill_area.draw(self.screen_coords)
         
+        if self.last_mouse_click:
+            x, y = pygame.mouse.get_pos()
+
+            topleft_x = min(x, self.last_mouse_click[0] - int(self.screen_coords[0]))
+            topleft_y = min(y, self.last_mouse_click[1] - int(self.screen_coords[1]))
+
+            pygame.draw.rect(self.win, pygame.Color("black"),
+                (topleft_x, topleft_y, abs(self.last_mouse_click[0] - int(self.screen_coords[0]) - x), abs(self.last_mouse_click[1] - int(self.screen_coords[1]) - y)))
+        
         pygame.display.update()
         
         pygame.display.set_caption(str(round(self.clock.get_fps(), 2)))
@@ -83,7 +92,8 @@ class Game:
         mouse_coords = pygame.mouse.get_pos()
         mouse_x = mouse_coords[0] + int(self.screen_coords[0])
         mouse_y = mouse_coords[1] + int(self.screen_coords[1])
-        print(mouse_x, mouse_y)
+        if event.button == 3:
+            print(mouse_x, mouse_y)
         if self.mode == 1:
             # edit mode
             if self.last_mouse_click is None:
