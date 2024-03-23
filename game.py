@@ -76,6 +76,7 @@ class Game:
             kill_area.draw(self.screen_coords)
         
         if self.last_mouse_click:
+            # draw the rect that will currently be placed if there is another click
             x, y = pygame.mouse.get_pos()
 
             topleft_x = min(x, self.last_mouse_click[0] - int(self.screen_coords[0]))
@@ -142,7 +143,7 @@ class Game:
             platform.tick(self.player)
         
         # update player
-        self.player.tick(self.platforms, self.kill_areas)
+        self.player.tick(self.platforms, self.kill_areas, self.clock.get_time() / 1000)
     
         # scroll screen after player has moved
         self.control_screen_scroll()
