@@ -1,4 +1,5 @@
 import pygame
+import os
 
 from consts import *
 
@@ -26,7 +27,8 @@ class Game:
         #                   Circle((200, 300), 30, self.win), Circle((0, 300), 100, self.win)]
         # self.kill_areas = [KillArea((540, 400), (60, 50), self.win)]
         
-        self.platforms : list[Platform | Circle | ImageStage] = [ImageStage("test_image.png", self.win)]
+        self.load_level_from_images("levels/2")
+        
         self.kill_areas = []
         
         self.running: bool = False
@@ -36,6 +38,18 @@ class Game:
         self.mode = 0   # 0-platformer, 1-editing
         
         self.last_mouse_click: tuple[int, int] | None = None        # used for placing platforms in edit mode
+    
+    def load_level_from_images(self, folder_path):
+        files = []
+        for (dirpath, dirnames, filenames) in os.walk(folder_path):
+            files.extend(filenames)
+            break
+        
+        image_paths = [f"{folder_path}/{file}" for file in files if file.endswith(".png")]
+        
+        self.platforms: list[Platform | Circle | ImageStage] = []
+        for image in image_paths:
+            self.platforms.append(ImageStage(image, self.win))
     
     def run(self):
         self.running = True
@@ -143,7 +157,7 @@ class Game:
             platform.tick(self.player)
         
         # update player
-        self.player.tick(self.platforms, self.kill_areas, self.clock.get_time() / 1000)
+        self.player.tick(self.platforms, self.kill_areas, self.clock.get_time() / 1000)     # / 1000 turns dt into seconds
     
         # scroll screen after player has moved
         self.control_screen_scroll()

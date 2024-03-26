@@ -81,7 +81,7 @@ class ImageStage:
         self.x_tl = self.x
         self.y_tl = self.y
         self.win = win
-        self.image = pygame.image.load(file_path)
+        self.image = pygame.image.load(file_path).convert_alpha()
         self.mask = pygame.mask.from_surface(self.image)
         self.has_rect = False
 
