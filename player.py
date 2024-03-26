@@ -61,15 +61,24 @@ class Player:
     def dashing(self) -> bool:
         return self.time_since_dash < self.dash_length
     
-    def screen_rect(self, screen_cords) -> pygame.rect.Rect:
+    def screen_rect(self, screen_coords) -> pygame.rect.Rect:
         # rect with regard to the coordinates (top left) of the screen so is used to draw
-        return pygame.rect.Rect(self.x - screen_cords[0], self.y - screen_cords[1], self.width, self.height)
+        return pygame.rect.Rect(self.x - screen_coords[0], self.y - screen_coords[1], self.width, self.height)
 
     def draw(self, screen_coords):
         # use screen rect
         #colour = pygame.Color("dark green") if self.can_jump else pygame.Color("red")      # for seeing when the player can jump
         colour = pygame.color.Color("red")
         pygame.draw.rect(self.win, colour, self.screen_rect(screen_coords))
+        
+        if self.time_since_dash > self.dash_cooldown:
+            rect = pygame.rect.Rect(self.x - screen_coords[0] + self.width - 10, self.y - screen_coords[1] + 2, 5, self.height - 4)
+            pygame.draw.rect(self.win, pygame.color.Color("dark green"), rect)
+        else:
+            percentage_dash = self.time_since_dash / self.dash_cooldown
+            height = int((self.height - 4) * percentage_dash)
+            rect = pygame.rect.Rect(self.x - screen_coords[0] + self.width - 10, self.y - screen_coords[1] + self.height - 2 - height, 5, height)
+            pygame.draw.rect(self.win, pygame.color.Color("orange"), rect)
         
     def jump(self, override=False):
         # jump if touched floor in the last 10 frames (coyote time) or manual override (might be useful)

@@ -125,7 +125,10 @@ class Game:
                 self.last_mouse_click = None
     
     def handle_key_down(self, event: pygame.event.Event):
-        if event.key == pygame.K_f:
+        if event.key == pygame.K_h:
+            print(HELP_MESSAGE)
+        
+        elif event.key == pygame.K_f:
             self.player.dash()
         elif event.key == pygame.K_r:
             self.player.reset()
