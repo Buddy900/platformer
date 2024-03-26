@@ -13,12 +13,16 @@ class Player:
         self.height = 40
         
         # constants, idk why they arent capital, i might change them at some point
-        self.x_accel = 36
+        # speeds are in pixels per second
+        self.x_accel = 1500
         self.terminal_x_vel = 480
         self.terminal_y_vel = 900
-        self.gravity = 30
+        self.gravity = 1800
         self.jump_strength = 800
+        self.coyote_time = 0.1
         self.dash_strength = 2400
+        self.dash_length = 0.08
+        self.dash_cooldown = 0.8
         
         self.recording = False
         self.recorded_coords = []
@@ -35,11 +39,10 @@ class Player:
         self.y_vel = 0
         
         self.right = self.left = self.up = self.down = self.jumping = False
-        self.dashing = False
-        self.dashing_tick = 0           # used when the player is currently dashing
-        self.dashing_cooldown = 0       # used to wait a little between dashes
         
-        self.touched_floor = 10         # time since the floor was last touched (any less than 10 allows the player to jump)
+        self.time_since_dash = 0           # used when the player is currently dashing, and to add a cooldown
+        
+        self.time_since_touched_floor = 10         # time since the floor was last touched (any less than 10 allows the player to jump)
 
     @property
     def rect(self) -> pygame.rect.Rect:
@@ -52,7 +55,11 @@ class Player:
     
     @property
     def can_jump(self) -> bool:
-        return self.touched_floor < 10
+        return self.time_since_touched_floor < self.coyote_time
+    
+    @property
+    def dashing(self) -> bool:
+        return self.time_since_dash < self.dash_length
     
     def screen_rect(self, screen_cords) -> pygame.rect.Rect:
         # rect with regard to the coordinates (top left) of the screen so is used to draw
@@ -69,11 +76,11 @@ class Player:
         # jump height is roughly 172 pixels
         if self.can_jump or override:
             self.y_vel = -self.jump_strength
-            self.touched_floor += 10    # any less than 10 allows player to jump immediately again
+            self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
     
     def dash(self):
-        if self.dashing_cooldown != 0:
-            # only dash if the cooldown is 0
+        if self.time_since_dash <= self.dash_cooldown:
+            # only dash if it has been enough time
             return
         # get direction of dash
         elif self.left and not self.right:
@@ -87,9 +94,7 @@ class Player:
             return
         
         self.x_vel = self.dash_strength * sign
-        self.dashing = True
-        self.dashing_tick = 4
-        self.dashing_cooldown = 30
+        self.time_since_dash = 0
     
     def valid_position(self, platforms: list[Platform | Circle | ImageStage], kill_areas: list[KillArea]) -> str | bool:
         """returns "dead" if dead, otherwise True or False whether position is valid or not"""
@@ -136,7 +141,7 @@ class Player:
                         # moving up slopes
                         self.y -= i
                         if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.valid_position(platforms, kill_areas):
-                            self.x_vel *= (i / 100 + 0.9)   # slow down the player a bit
+                            self.x_vel *= (i / 100 + 0.9)   # friction - needs to be updated to be physically accurate (friction = friction coefficient * normal force)
                             slope = True
                         else:
                             self.y += i
@@ -145,7 +150,8 @@ class Player:
                         self.x -= (self.x_vel * dt) / divide
                         self.x_vel = 0
                         change_x = False
-                        self.dashing_tick = 0       # if wall is hit, stop dashing
+                        if self.dashing:
+                            self.time_since_dash = self.dash_length       # if wall is hit, stop dashing
             if change_y:
                 self.y += (self.y_vel * dt) / divide
                 valid = self.valid_position(platforms, kill_areas)
@@ -154,40 +160,37 @@ class Player:
                 if not valid:
                     self.y -= (self.y_vel * dt) / divide
                     if self.y_vel > 0:
-                        self.touched_floor = 0  # if floor is hit, touched_floor is now 0
+                        self.time_since_touched_floor = 0  # if floor is hit, touched_floor is now 0
                     self.y_vel = 0
                     change_y = False
     
     def tick(self, platforms: list[Platform | Circle | ImageStage], kill_areas: list[KillArea], dt):
         # controls all the collision and stuff
         
-        if self.dashing_cooldown > 0:
-            self.dashing_cooldown -= 1
-        
         if self.dashing:
-            self.dashing_tick -= 1
+            pass
             
         # only change velocity if the player isnt dashing
         elif self.right and self.left or not self.right and not self.left:
             # if nothing (or both left + right) is pressed, slow the player to a halt
             if self.x_vel < 0:
-                self.x_vel = min(self.x_vel + self.x_accel, 0)
+                self.x_vel = min(self.x_vel + (self.x_accel * dt), 0)
             elif self.x_vel > 0:
-                self.x_vel = max(self.x_vel - self.x_accel, 0)
+                self.x_vel = max(self.x_vel - (self.x_accel * dt), 0)
         
         elif self.right:
             # if slowing down, twice the acceleration is used
             if self.x_vel < 0:
-                self.x_vel = min(self.x_vel + self.x_accel * 2, self.terminal_x_vel)
+                self.x_vel = min(self.x_vel + (self.x_accel * 2 * dt), self.terminal_x_vel)
             else:
-                self.x_vel = min(self.x_vel + self.x_accel, self.terminal_x_vel)
+                self.x_vel = min(self.x_vel + (self.x_accel * dt), self.terminal_x_vel)
         
         elif self.left:
             # if slowing down, twice the acceleration is used
             if self.x_vel > 0:
-                self.x_vel = max(self.x_vel - self.x_accel * 2, -self.terminal_x_vel)
+                self.x_vel = max(self.x_vel - (self.x_accel * 2 * dt), -self.terminal_x_vel)
             else:
-                self.x_vel = max(self.x_vel - self.x_accel, -self.terminal_x_vel)
+                self.x_vel = max(self.x_vel - (self.x_accel * dt), -self.terminal_x_vel)
         
         # terminal x vel
         if not self.dashing and self.x_vel < 0:
@@ -195,13 +198,11 @@ class Player:
         elif not self.dashing and self.x_vel > 0:
             self.x_vel = min(self.x_vel, self.terminal_x_vel)
         
-        self.touched_floor += 1
+        self.time_since_touched_floor += dt
+        self.time_since_dash += dt
         
         # move y vel down
-        self.y_vel = min(self.y_vel + self.gravity, self.terminal_y_vel)
-        
-        if self.dashing_tick <= 0:
-            self.dashing = False
+        self.y_vel = min(self.y_vel + (self.gravity * dt), self.terminal_y_vel)
         
         if self.jumping:
             self.jump()
