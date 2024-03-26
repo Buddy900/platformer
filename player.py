@@ -14,6 +14,8 @@ class Player:
         
         # constants, idk why they arent capital, i might change them at some point
         # speeds are in pixels per second
+        self.mass = 10
+        self.friction = 0.2
         self.x_accel = 1500
         self.terminal_x_vel = 480
         self.terminal_y_vel = 900
@@ -150,7 +152,7 @@ class Player:
                         # moving up slopes
                         self.y -= i
                         if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.valid_position(platforms, kill_areas):
-                            self.x_vel *= (i / 100 + 0.9)   # friction - needs to be updated to be physically accurate (friction = friction coefficient * normal force)
+                            self.x_vel *= (i / 100 + 0.9)   # slow down when moving up a slope - slightly dodgy
                             slope = True
                         else:
                             self.y += i
@@ -180,6 +182,7 @@ class Player:
             pass
             
         # only change velocity if the player isnt dashing
+        # friction - needs to be updated to be physically accurate (friction = friction coefficient * normal force)
         elif self.right and self.left or not self.right and not self.left:
             # if nothing (or both left + right) is pressed, slow the player to a halt
             if self.x_vel < 0:
