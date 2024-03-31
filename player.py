@@ -19,6 +19,7 @@ class Player:
         self.x_accel = 1500
         self.terminal_x_vel = 480
         self.terminal_y_vel = 900
+        self.wall_slide_vel = 200
         self.gravity = 1800
         self.jump_strength = 800
         self.coyote_time = 0.1
@@ -82,10 +83,12 @@ class Player:
             rect = pygame.rect.Rect(self.x - screen_coords[0] + self.width - 10, self.y - screen_coords[1] + self.height - 2 - height, 5, height)
             pygame.draw.rect(self.win, pygame.color.Color("orange"), rect)
         
-    def jump(self, override=False):
+    def jump(self, wall_jump=False, override=False):
         # jump if touched floor in the last 10 frames (coyote time) or manual override (might be useful)
         # jump height is roughly 172 pixels
-        if self.can_jump or override:
+        jump = (wall_jump and self.can_wall_jump) or (not wall_jump and self.can_jump) or override
+        
+        if jump:
             self.y_vel = -self.jump_strength
             self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
     
@@ -137,6 +140,7 @@ class Player:
         # splits movement into "divide" parts
         # keep moving the player in steps
         # if they overlap something, move them back 1 step and stop moving
+        self.can_wall_jump = False
         divide = 16
         change_x = True
         change_y = True
@@ -163,6 +167,8 @@ class Player:
                         change_x = False
                         if self.dashing:
                             self.time_since_dash = self.dash_length       # if wall is hit, stop dashing
+                        self.y_vel = min(self.y_vel, self.wall_slide_vel)      # slide down walls
+                        self.can_wall_jump = True
             if change_y:
                 self.y += (self.y_vel * dt) / divide
                 valid = self.valid_position(platforms, kill_areas)

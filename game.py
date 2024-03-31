@@ -128,6 +128,8 @@ class Game:
         if event.key == pygame.K_h:
             print(HELP_MESSAGE)
         
+        elif event.key in [pygame.K_SPACE, pygame.K_UP, pygame.K_w]:
+            self.player.jump(wall_jump=True)
         elif event.key == pygame.K_f:
             self.player.dash()
         elif event.key == pygame.K_r:
