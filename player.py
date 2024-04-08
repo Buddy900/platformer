@@ -93,7 +93,7 @@ class Player:
     def jump(self, wall_jump=False, override=False):
         # jump if touched floor in the last 10 frames (coyote time) or manual override (might be useful)
         # jump height is roughly 172 pixels
-        if (not wall_jump and self.can_jump) or override:
+        if self.can_jump or override:
             # normal jump
             self.y_vel = -self.jump_strength
             self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
@@ -102,6 +102,7 @@ class Player:
             # wall jump
             self.y_vel = -self.jump_strength
             self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
+            print(self.wall_jump_dir)
             self.x_vel = self.wall_jump_dir * 300
     
     def dash(self):
@@ -152,7 +153,6 @@ class Player:
         # splits movement into "divide" parts
         # keep moving the player in steps
         # if they overlap something, move them back 1 step and stop moving
-        self.wall_jump_dir = 0
         divide = 16
         change_x = True
         change_y = True
