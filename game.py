@@ -128,7 +128,7 @@ class Game:
         if event.key == pygame.K_h:
             print(HELP_MESSAGE)
         
-        elif event.key in [pygame.K_SPACE, pygame.K_UP, pygame.K_w]:
+        elif event.key == pygame.K_SPACE:
             self.player.jump(wall_jump=True)
         elif event.key == pygame.K_f:
             self.player.dash()
@@ -155,7 +155,7 @@ class Game:
         keys_pressed = pygame.key.get_pressed()
         self.player.right = keys_pressed[pygame.K_RIGHT] or keys_pressed[pygame.K_d]
         self.player.left = keys_pressed[pygame.K_LEFT] or keys_pressed[pygame.K_a]
-        self.player.jumping = keys_pressed[pygame.K_SPACE] or keys_pressed[pygame.K_w] or keys_pressed[pygame.K_UP]
+        self.player.jumping = keys_pressed[pygame.K_SPACE]
     
         # update platforms (in case they are moving)
         for platform in self.platforms:

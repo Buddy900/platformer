@@ -45,7 +45,10 @@ class Player:
         
         self.time_since_dash = 0           # used when the player is currently dashing, and to add a cooldown
         
-        self.time_since_touched_floor = 10         # time since the floor was last touched (any less than 10 allows the player to jump)
+        self.time_since_touched_floor = self.coyote_time         # time since the floor was last touched (any less than self.coyote_time allows the player to jump)
+        self.time_since_touched_wall = self.coyote_time          # time since the wall was last touched (any less than self.coyote_time allows the player to wall jump)
+        
+        self.wall_jump_dir = 0
 
     @property
     def rect(self) -> pygame.rect.Rect:
@@ -59,6 +62,10 @@ class Player:
     @property
     def can_jump(self) -> bool:
         return self.time_since_touched_floor < self.coyote_time
+    
+    @property
+    def can_wall_jump(self) -> bool:
+        return self.time_since_touched_wall < self.coyote_time
     
     @property
     def dashing(self) -> bool:
@@ -86,11 +93,16 @@ class Player:
     def jump(self, wall_jump=False, override=False):
         # jump if touched floor in the last 10 frames (coyote time) or manual override (might be useful)
         # jump height is roughly 172 pixels
-        jump = (wall_jump and self.can_wall_jump) or (not wall_jump and self.can_jump) or override
-        
-        if jump:
+        if (not wall_jump and self.can_jump) or override:
+            # normal jump
             self.y_vel = -self.jump_strength
             self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
+        
+        elif wall_jump and self.can_wall_jump:
+            # wall jump
+            self.y_vel = -self.jump_strength
+            self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
+            self.x_vel = self.wall_jump_dir * 300
     
     def dash(self):
         if self.time_since_dash <= self.dash_cooldown:
@@ -140,7 +152,7 @@ class Player:
         # splits movement into "divide" parts
         # keep moving the player in steps
         # if they overlap something, move them back 1 step and stop moving
-        self.can_wall_jump = False
+        self.wall_jump_dir = 0
         divide = 16
         change_x = True
         change_y = True
@@ -163,12 +175,13 @@ class Player:
                             
                     if not slope:
                         self.x -= (self.x_vel * dt) / divide
+                        self.wall_jump_dir = - int(self.x_vel / abs(self.x_vel))
+                        self.time_since_touched_wall = 0
                         self.x_vel = 0
                         change_x = False
                         if self.dashing:
                             self.time_since_dash = self.dash_length       # if wall is hit, stop dashing
                         self.y_vel = min(self.y_vel, self.wall_slide_vel)      # slide down walls
-                        self.can_wall_jump = True
             if change_y:
                 self.y += (self.y_vel * dt) / divide
                 valid = self.valid_position(platforms, kill_areas)
@@ -217,6 +230,7 @@ class Player:
             self.x_vel = min(self.x_vel, self.terminal_x_vel)
         
         self.time_since_touched_floor += dt
+        self.time_since_touched_wall += dt
         self.time_since_dash += dt
         
         # move y vel down
