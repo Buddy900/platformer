@@ -3,7 +3,7 @@ import os
 
 from consts import *
 
-from platforms import Platform, Circle, ImageStage
+from platforms import Platform, Rectangle, Circle, ImageStage
 from kill_area import KillArea
 from player import Player
 
@@ -28,6 +28,10 @@ class Game:
         # self.kill_areas = [KillArea((540, 400), (60, 50), self.win)]
         
         self.load_level_from_images("levels/2")
+        
+        #self.platforms.append(Rectangle((500, 200), (500, 500), self.win, (-20, 0)))
+        self.platforms.append(ImageStage("rect.png", self.win, (500, 200),(-20, -10)))
+        #self.platforms.append(Circle((500, 0), 250, self.win, (-10, 5)))
         
         self.kill_areas = []
         
@@ -159,7 +163,7 @@ class Game:
     
         # update platforms (in case they are moving)
         for platform in self.platforms:
-            platform.tick(self.player)
+            platform.tick(self.player, self.clock.get_time() / 1000)
         
         # update player
         self.player.tick(self.platforms, self.kill_areas, self.clock.get_time() / 1000)     # / 1000 turns dt into seconds

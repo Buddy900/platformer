@@ -5,19 +5,26 @@ from consts import *
 
 
 class Platform:
-    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, moving=False):
+    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
         self.x, self.y = coords
         self.width, self.height = dims
         self.win = win
-        self.moving = moving
-        self.x_vel = 1.5
-        self.y_vel = 0
+        self.x_vel, self.y_vel = vel
         self.has_rect = True
-
+        self.mask = pygame.mask.Mask((0, 0))
+    
     @property
     def rect(self) -> pygame.rect.Rect:
         # actual rect used for collisions
         return pygame.rect.Rect(self.x, self.y, self.width, self.height)
+    
+    @property
+    def x_tl(self):
+        return self.x
+    
+    @property
+    def y_tl(self):
+        return self.y
     
     def screen_rect(self, screen_coords) -> pygame.rect.Rect:
         # rect with regard to the coordinates (top left) of the screen so is used to draw
@@ -26,26 +33,47 @@ class Platform:
     def draw(self, screen_coords):
         pygame.draw.rect(self.win, pygame.Color("black"), self.screen_rect(screen_coords))
         
-    def tick(self, player):
-        if self.moving:
-            self.x += self.x_vel
-            self.y += self.y_vel
+    def tick(self, player, dt):
+        self.x += self.x_vel * dt
+        self.y += self.y_vel * dt
         
-        # if collide with player, move the player along so no longer colliding
-        # this doesnt really work
-        if player.rect.colliderect(self.rect):
-            player.x += math.ceil(self.x_vel)
-            player.y += math.ceil(self.y_vel)
+        player_collide = False
+        if self == player.platform_touching:
+            player_collide = True
+        elif self.has_rect:
+            rect = self.rect
+            #rect.x += 1
+            #rect.y += 1
+            #rect.width -= 2
+            #rect.height -= 2
+            player_collide = rect.colliderect(player.rect)
+            if player_collide:
+                print("collision")
+        else:
+            offset_x = player.x - self.x_tl
+            offset_y = player.y - self.y_tl
+            player_collide = self.mask.overlap(player.mask, (offset_x, offset_y))
         
+        if player_collide:
+            player.x += self.x_vel * dt
+            player.y += self.y_vel * dt
 
-class Circle:
-    def __init__(self, coords: tuple[float, float], radius: float, win: pygame.surface.Surface, moving=False):
+
+class Rectangle(Platform):
+    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
+        self.x, self.y = coords
+        self.width, self.height = dims
+        self.win = win
+        self.x_vel, self.y_vel = vel
+        self.has_rect = True
+        
+        
+class Circle(Platform):
+    def __init__(self, coords: tuple[float, float], radius: float, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
         self.x, self.y = coords
         self.radius = radius
         self.win = win
-        self.moving = moving
-        self.x_vel = 1.5
-        self.y_vel = 0
+        self.x_vel, self.y_vel = vel
         self.has_rect = False
         circle_surface = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(circle_surface, pygame.Color("black"), (self.radius, self.radius), self.radius)
@@ -64,31 +92,17 @@ class Circle:
             and (screen_coords[1] <= self.y + self.radius and self.y - self.radius <= screen_coords[1] + HEIGHT):
             pygame.draw.circle(self.win, pygame.Color("black"), (self.x - screen_coords[0], self.y - screen_coords[1]), self.radius)
         
-    def tick(self, player):
-        if self.moving:
-            self.x += self.x_vel
-            self.y += self.y_vel
         
-        # if collide with player, move the player along so no longer colliding
-        # circles are rects :(
-        # if player.rect.colliderect(self.rect):
-        #     player.x += math.ceil(self.x_vel)
-        #     player.y += math.ceil(self.y_vel)
-        
-class ImageStage:
-    def __init__(self, file_path: str, win: pygame.surface.Surface, coords: tuple[int, int]=(0, 0)):
+class ImageStage(Platform):
+    def __init__(self, file_path: str, win: pygame.surface.Surface, coords: tuple[int, int]=(0, 0), vel: tuple[float, float]=(0, 0)):
         self.x, self.y = coords
-        self.x_tl = self.x
-        self.y_tl = self.y
         self.win = win
         self.image = pygame.image.load(file_path).convert_alpha()
         self.mask = pygame.mask.from_surface(self.image)
         self.has_rect = False
+        self.x_vel, self.y_vel = vel
 
     def draw(self, screen_coords):
         rect = self.image.get_rect()
         rect.x, rect.y = self.x - screen_coords[0], self.y - screen_coords[1]
         self.win.blit(self.image, rect)
-        
-    def tick(self, player):
-        ...

@@ -1,7 +1,7 @@
 import pygame
 
 from consts import *
-from platforms import Platform, Circle, ImageStage
+from platforms import Platform, Rectangle, Circle, ImageStage
 from kill_area import KillArea
 
 
@@ -49,6 +49,8 @@ class Player:
         self.time_since_touched_wall = self.coyote_time          # time since the wall was last touched (any less than self.coyote_time allows the player to wall jump)
         
         self.wall_jump_dir = 0
+        
+        self.platform_touching = None
 
     @property
     def rect(self) -> pygame.rect.Rect:
@@ -102,7 +104,6 @@ class Player:
             # wall jump
             self.y_vel = -self.jump_strength
             self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
-            print(self.wall_jump_dir)
             self.x_vel = self.wall_jump_dir * 300
     
     def dash(self):
@@ -123,33 +124,26 @@ class Player:
         self.x_vel = self.dash_strength * sign
         self.time_since_dash = 0
     
-    def valid_position(self, platforms: list[Platform | Circle | ImageStage], kill_areas: list[KillArea]) -> str | bool:
+    def touching(self, platforms: list[Platform], kill_areas: list[KillArea]):
         """returns "dead" if dead, otherwise True or False whether position is valid or not"""
         
         if self.rect.collidelist([kill_area.rect for kill_area in kill_areas]) != -1:
             return "dead"
         
-        platform_rects = []
         other_platforms = []
         for platform in platforms:
-            if isinstance(platform, Platform):
-                platform_rects.append(platform.rect)
+            if platform.has_rect:
+                if self.rect.colliderect(platform.rect):
+                    return platform
             else:
-                other_platforms.append(platform)
+                offset_x = self.x - platform.x_tl
+                offset_y = self.y - platform.y_tl
+                if platform.mask.overlap(self.mask, (offset_x, offset_y)):
+                    return platform
         
-        if self.rect.collidelist(platform_rects) != -1:
-            return False
-        
-        mask = self.mask
-        for platform in other_platforms:
-            offset_x = self.x - platform.x_tl
-            offset_y = self.y - platform.y_tl
-            if platform.mask.overlap(mask, (offset_x, offset_y)):
-                return False
-        
-        return True
+        return -1
     
-    def update_position(self, platforms: list[Platform | Circle | ImageStage], kill_areas: list[KillArea], dt):
+    def update_position(self, platforms: list[Platform], kill_areas: list[KillArea], dt):
         # splits movement into "divide" parts
         # keep moving the player in steps
         # if they overlap something, move them back 1 step and stop moving
@@ -160,22 +154,22 @@ class Player:
             if change_x:
                 slope = False
                 self.x += (self.x_vel * dt) / divide
-                valid = self.valid_position(platforms, kill_areas)
-                if valid == "dead":
+                touching = self.touching(platforms, kill_areas)
+                if touching == "dead":
                     return "dead"
-                if not valid:
-                    for i in range(10):
+                if touching != -1:
+                    for i in range(6):
                         # moving up slopes
                         self.y -= i
-                        if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.valid_position(platforms, kill_areas):
-                            self.x_vel *= (i / 100 + 0.9)   # slow down when moving up a slope - slightly dodgy
+                        if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.touching(platforms, kill_areas) == -1:
+                            # self.x_vel *= (i / 100 + 0.9)   # slow down when moving up a slope - slightly dodgy
                             slope = True
                         else:
                             self.y += i
                             
                     if not slope:
                         self.x -= (self.x_vel * dt) / divide
-                        self.wall_jump_dir = - int(self.x_vel / abs(self.x_vel))
+                        self.wall_jump_dir = 0 if self.x_vel == 0 else - int(self.x_vel / abs(self.x_vel))
                         self.time_since_touched_wall = 0
                         self.x_vel = 0
                         change_x = False
@@ -184,17 +178,19 @@ class Player:
                         self.y_vel = min(self.y_vel, self.wall_slide_vel)      # slide down walls
             if change_y:
                 self.y += (self.y_vel * dt) / divide
-                valid = self.valid_position(platforms, kill_areas)
-                if valid == "dead":
+                touching = self.touching(platforms, kill_areas)
+                if touching == "dead":
                     return "dead"
-                if not valid:
+                elif isinstance(touching, Platform):
+                    self.platform_touching = touching
+                if touching != -1:
                     self.y -= (self.y_vel * dt) / divide
                     if self.y_vel > 0:
                         self.time_since_touched_floor = 0  # if floor is hit, touched_floor is now 0
                     self.y_vel = 0
                     change_y = False
     
-    def tick(self, platforms: list[Platform | Circle | ImageStage], kill_areas: list[KillArea], dt):
+    def tick(self, platforms: list[Platform], kill_areas: list[KillArea], dt):
         # controls all the collision and stuff
         
         if self.dashing:
@@ -239,6 +235,7 @@ class Player:
         if self.jumping:
             self.jump()
         
+        self.platform_touching = None
         dead = self.update_position(platforms, kill_areas, dt)
         if dead == "dead":
             self.reset()
