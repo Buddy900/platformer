@@ -30,7 +30,7 @@ class Game:
         self.load_level_from_images("levels/2")
         
         #self.platforms.append(Rectangle((500, 200), (500, 500), self.win, (-20, 0)))
-        self.platforms.append(ImageStage("rect.png", self.win, (500, 200),(-20, -10)))
+        self.platforms.append(ImageStage("rect.png", self.win, (500, 200), [((-50, 0), 2), ((0, -50), 2), ((50, 0), 2), ((0, 50), 2)]))
         #self.platforms.append(Circle((500, 0), 250, self.win, (-10, 5)))
         
         self.kill_areas = []

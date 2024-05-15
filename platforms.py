@@ -5,11 +5,16 @@ from consts import *
 
 
 class Platform:
-    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
+    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel_path: list[tuple[tuple[float, float], float]] | None=None):
         self.x, self.y = coords
         self.width, self.height = dims
         self.win = win
-        self.x_vel, self.y_vel = vel
+        self.vel_pointer = 0
+        self.time_since_vel_change = 0
+        if vel_path is None:
+            self.vel_path: list[tuple[tuple[float, float], float]] = []
+        else:
+            self.vel_path: list[tuple[tuple[float, float], float]] = vel_path # type: ignore
         self.has_rect = True
         self.mask = pygame.mask.Mask((0, 0))
     
@@ -34,8 +39,20 @@ class Platform:
         pygame.draw.rect(self.win, pygame.Color("black"), self.screen_rect(screen_coords))
         
     def tick(self, player, dt):
-        self.x += self.x_vel * dt
-        self.y += self.y_vel * dt
+        self.time_since_vel_change += dt
+        if len(self.vel_path) == 0:
+            x_vel = y_vel = 0
+        else:
+            if self.time_since_vel_change > self.vel_path[self.vel_pointer][1]:
+                next_pointer = self.vel_pointer + 1
+                if next_pointer > len(self.vel_path) - 1:
+                    next_pointer = 0
+                self.vel_pointer = next_pointer
+                self.time_since_vel_change = 0
+            x_vel, y_vel = self.vel_path[self.vel_pointer][0]
+        
+        self.x += x_vel * dt
+        self.y += y_vel * dt
         
         player_collide = False
         if self == player.platform_touching:
@@ -55,25 +72,35 @@ class Platform:
             player_collide = self.mask.overlap(player.mask, (offset_x, offset_y))
         
         if player_collide:
-            player.x += self.x_vel * dt
-            player.y += self.y_vel * dt
+            player.x += x_vel * dt
+            player.y += y_vel * dt
 
 
 class Rectangle(Platform):
-    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
+    def __init__(self, coords: tuple[float, float], dims, win: pygame.surface.Surface, vel_path: list[tuple[tuple[float, float], float]] | None=None):
         self.x, self.y = coords
         self.width, self.height = dims
         self.win = win
-        self.x_vel, self.y_vel = vel
+        self.vel_pointer = 0
+        self.time_since_vel_change = 0
+        if vel_path is None:
+            self.vel_path: list[tuple[tuple[float, float], float]] = []
+        else:
+            self.vel_path: list[tuple[tuple[float, float], float]] = vel_path # type: ignore
         self.has_rect = True
         
         
 class Circle(Platform):
-    def __init__(self, coords: tuple[float, float], radius: float, win: pygame.surface.Surface, vel: tuple[float, float]=(0, 0)):
+    def __init__(self, coords: tuple[float, float], radius: float, win: pygame.surface.Surface, vel_path: list[tuple[tuple[float, float], float]] | None=None):
         self.x, self.y = coords
         self.radius = radius
         self.win = win
-        self.x_vel, self.y_vel = vel
+        self.vel_pointer = 0
+        self.time_since_vel_change = 0
+        if vel_path is None:
+            self.vel_path: list[tuple[tuple[float, float], float]] = []
+        else:
+            self.vel_path: list[tuple[tuple[float, float], float]] = vel_path # type: ignore
         self.has_rect = False
         circle_surface = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(circle_surface, pygame.Color("black"), (self.radius, self.radius), self.radius)
@@ -94,13 +121,18 @@ class Circle(Platform):
         
         
 class ImageStage(Platform):
-    def __init__(self, file_path: str, win: pygame.surface.Surface, coords: tuple[int, int]=(0, 0), vel: tuple[float, float]=(0, 0)):
+    def __init__(self, file_path: str, win: pygame.surface.Surface, coords: tuple[int, int]=(0, 0), vel_path: list[tuple[tuple[float, float], float]] | None=None):
         self.x, self.y = coords
         self.win = win
         self.image = pygame.image.load(file_path).convert_alpha()
         self.mask = pygame.mask.from_surface(self.image)
         self.has_rect = False
-        self.x_vel, self.y_vel = vel
+        self.vel_pointer = 0
+        self.time_since_vel_change = 0
+        if vel_path is None:
+            self.vel_path: list[tuple[tuple[float, float], float]] = []
+        else:
+            self.vel_path: list[tuple[tuple[float, float], float]] = vel_path # type: ignore
 
     def draw(self, screen_coords):
         rect = self.image.get_rect()
