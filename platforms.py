@@ -64,8 +64,6 @@ class Platform:
             #rect.width -= 2
             #rect.height -= 2
             player_collide = rect.colliderect(player.rect)
-            if player_collide:
-                print("collision")
         else:
             offset_x = player.x - self.x_tl
             offset_y = player.y - self.y_tl

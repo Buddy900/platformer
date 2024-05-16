@@ -193,6 +193,17 @@ class Player:
     def tick(self, platforms: list[Platform], kill_areas: list[KillArea], dt):
         # controls all the collision and stuff
         
+        safe = True
+        for _ in range(6):
+            safe = self.touching(platforms, kill_areas) == -1
+            if not safe:
+                self.y -= 1
+            else:
+                break
+        
+        if not safe:
+            self.reset()
+        
         if self.dashing:
             pass
             
