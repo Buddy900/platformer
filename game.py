@@ -5,6 +5,7 @@ from consts import *
 
 from platforms import Platform, Rectangle, Circle, ImageStage
 from kill_area import KillArea
+from portal import Portal
 from player import Player
 
 
@@ -15,6 +16,7 @@ class Game:
         self.clock = pygame.time.Clock()
         
         self.player: Player = Player(self.win)
+        self.platforms: list[Platform | Circle | ImageStage]
         # self.platforms = [Platform((-1000, HEIGHT - 300), (100, 300), self.win),
         #                   Platform((WIDTH + 1900, HEIGHT - 300), (100, 300), self.win), 
         #                   Platform((0, 600), (WIDTH, 100), self.win), Platform((600, 200), (100, 500), self.win),
@@ -27,10 +29,11 @@ class Game:
         #                   Circle((200, 300), 30, self.win), Circle((0, 300), 100, self.win)]
         # self.kill_areas = [KillArea((540, 400), (60, 50), self.win)]
         
-        self.load_level_from_images("levels/2")
+        self.load_level_from_images("levels/3")
         
         #self.platforms.append(Rectangle((500, 200), (500, 500), self.win, (-20, 0)))
-        self.platforms.append(ImageStage("rect.png", self.win, (498, 200), [((-50, 0), 2), ((0, -50), 2), ((50, 0), 2), ((0, 50), 2)]))
+        #self.platforms.append(ImageStage("rect.png", self.win, (498, 200), [((-50, 0), 2), ((0, -50), 2), ((50, 0), 2), ((0, 50), 2)]))
+        self.portals = [Portal((1080, 180), (550, 180), (20, 100), self.win)]
         #self.platforms.append(Circle((500, 0), 250, self.win, (-10, 5)))
         
         self.kill_areas = []
@@ -51,7 +54,7 @@ class Game:
         
         image_paths = [f"{folder_path}/{file}" for file in files if file.endswith(".png")]
         
-        self.platforms: list[Platform | Circle | ImageStage] = []
+        self.platforms = []
         for image in image_paths:
             self.platforms.append(ImageStage(image, self.win))
     
@@ -92,6 +95,9 @@ class Game:
             
         for kill_area in self.kill_areas:
             kill_area.draw(self.screen_coords)
+        
+        for portal in self.portals:
+            portal.draw(self.screen_coords)
         
         if self.last_mouse_click:
             # draw the rect that will currently be placed if there is another click
@@ -166,7 +172,7 @@ class Game:
             platform.tick(self.player, self.clock.get_time() / 1000)
         
         # update player
-        self.player.tick(self.platforms, self.kill_areas, self.clock.get_time() / 1000)     # / 1000 turns dt into seconds
+        self.player.tick(self.platforms, self.kill_areas, self.portals, self.clock.get_time() / 1000)     # / 1000 turns dt into seconds
     
         # scroll screen after player has moved
         self.control_screen_scroll()

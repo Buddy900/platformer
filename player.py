@@ -3,6 +3,7 @@ import pygame
 from consts import *
 from platforms import Platform, Rectangle, Circle, ImageStage
 from kill_area import KillArea
+from portal import Portal
 
 
 class Player:
@@ -51,6 +52,7 @@ class Player:
         self.wall_jump_dir = 0
         
         self.platform_touching = None
+        self.in_portal = False
 
     @property
     def rect(self) -> pygame.rect.Rect:
@@ -124,7 +126,50 @@ class Player:
         self.x_vel = self.dash_strength * sign
         self.time_since_dash = 0
     
-    def touching(self, platforms: list[Platform], kill_areas: list[KillArea]):
+    def check_in_portal(self, portals: list[Portal]):
+        collide_portal = False
+        for portal in portals:
+            if self.rect.colliderect(portal.rect_1):
+                collide_portal = True
+                if not self.in_portal:
+                    # wasn't in a portal before but now is
+                    if portal.vertical:
+                        self.y = portal.y_2 + self.y - portal.y_1
+                        if self.x > portal.x_1:
+                            self.x = portal.x_2 - self.width
+                        else:
+                            self.x = portal.x_2 + portal.width
+                    else:
+                        self.x = portal.x_2 + self.x - portal.x_1
+                        if self.y > portal.y_1:
+                            self.y = portal.y_2 - self.height
+                        else:
+                            self.y = portal.y_2 + portal.height
+                    self.in_portal = True
+                
+            elif self.rect.colliderect(portal.rect_2):
+                collide_portal = True
+                #print("in orange")
+                if not self.in_portal:
+                    # wasn't in a portal before but now is
+                    if portal.vertical:
+                        self.y = portal.y_1 + self.y - portal.y_2
+                        if self.x > portal.x_2:
+                            self.x = portal.x_1 - self.width
+                        else:
+                            self.x = portal.x_1 + portal.width
+                    else:
+                        self.x = portal.x_1 + self.x - portal.x_2
+                        if self.y > portal.y_2:
+                            self.y = portal.y_1 - self.height
+                        else:
+                            self.y = portal.y_1 + portal.height
+                    self.in_portal = True
+        
+        if not collide_portal:
+            self.in_portal = False
+    
+    def touching(self, platforms: list[Platform], kill_areas: list[KillArea], portals: list[Portal]):
         """returns "dead" if dead, otherwise True or False whether position is valid or not"""
         
         if self.rect.collidelist([kill_area.rect for kill_area in kill_areas]) != -1:
@@ -143,7 +188,7 @@ class Player:
         
         return -1
     
-    def update_position(self, platforms: list[Platform], kill_areas: list[KillArea], dt):
+    def update_position(self, platforms: list[Platform], kill_areas: list[KillArea], portals: list[Portal], dt):
         # splits movement into "divide" parts
         # keep moving the player in steps
         # if they overlap something, move them back 1 step and stop moving
@@ -151,17 +196,18 @@ class Player:
         change_x = True
         change_y = True
         for _ in range(divide):
+            self.check_in_portal(portals)
             if change_x:
                 slope = False
                 self.x += (self.x_vel * dt) / divide
-                touching = self.touching(platforms, kill_areas)
+                touching = self.touching(platforms, kill_areas, portals)
                 if touching == "dead":
                     return "dead"
                 if touching != -1:
                     for i in range(6):
                         # moving up slopes
                         self.y -= i
-                        if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.touching(platforms, kill_areas) == -1:
+                        if not slope and (abs(self.y_vel) <= 1 or self.x_vel >= self.terminal_x_vel) and self.touching(platforms, kill_areas, portals) == -1:
                             # self.x_vel *= (i / 100 + 0.9)   # slow down when moving up a slope - slightly dodgy
                             slope = True
                         else:
@@ -178,7 +224,7 @@ class Player:
                         self.y_vel = min(self.y_vel, self.wall_slide_vel)      # slide down walls
             if change_y:
                 self.y += (self.y_vel * dt) / divide
-                touching = self.touching(platforms, kill_areas)
+                touching = self.touching(platforms, kill_areas, portals)
                 if touching == "dead":
                     return "dead"
                 elif isinstance(touching, Platform):
@@ -190,16 +236,26 @@ class Player:
                     self.y_vel = 0
                     change_y = False
     
-    def tick(self, platforms: list[Platform], kill_areas: list[KillArea], dt):
+    def tick(self, platforms: list[Platform], kill_areas: list[KillArea], portals: list[Portal], dt):
         # controls all the collision and stuff
         
+        # try to get the player out of an object, otherwise kill them
         safe = True
         for _ in range(6):
-            safe = self.touching(platforms, kill_areas) == -1
+            safe = self.touching(platforms, kill_areas, portals) == -1
             if not safe:
                 self.y -= 1
             else:
                 break
+        
+        if not safe:
+            self.y += 6
+            for _ in range(6):
+                safe = self.touching(platforms, kill_areas, portals) == -1
+                if not safe:
+                    self.y += 1
+                else:
+                    break
         
         if not safe:
             self.reset()
@@ -247,7 +303,7 @@ class Player:
             self.jump()
         
         self.platform_touching = None
-        dead = self.update_position(platforms, kill_areas, dt)
+        dead = self.update_position(platforms, kill_areas, portals, dt)
         if dead == "dead":
             self.reset()
         
