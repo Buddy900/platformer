@@ -29,11 +29,12 @@ class Game:
         #                   Circle((200, 300), 30, self.win), Circle((0, 300), 100, self.win)]
         # self.kill_areas = [KillArea((540, 400), (60, 50), self.win)]
         
-        self.load_level_from_images("levels/3")
+        self.load_level_from_images("levels/4")
         
         #self.platforms.append(Rectangle((500, 200), (500, 500), self.win, (-20, 0)))
         #self.platforms.append(ImageStage("rect.png", self.win, (498, 200), [((-50, 0), 2), ((0, -50), 2), ((50, 0), 2), ((0, 50), 2)]))
-        self.portals = [Portal((1080, 180), (550, 180), (20, 100), self.win)]
+        self.portals = [Portal((1080, 380), (450, 180), (20, 100), self.win)]
+        #self.portals = []
         #self.platforms.append(Circle((500, 0), 250, self.win, (-10, 5)))
         
         self.kill_areas = []
@@ -160,6 +161,10 @@ class Game:
             y = [coords[1] for coords in self.player.recorded_coords]
             print(min(y), max(y), max(y) - min(y))
     
+    def handle_key_up(self, event: pygame.event.Event):
+        if event.key == pygame.K_SPACE:
+            self.player.stop_jump()
+    
     def loop_platformer(self):
         # tell player what keys are being pressed
         keys_pressed = pygame.key.get_pressed()
@@ -206,6 +211,9 @@ class Game:
             
             elif event.type == pygame.KEYDOWN:
                 self.handle_key_down(event)
+            
+            elif event.type == pygame.KEYUP:
+                self.handle_key_up(event)
                     
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.handle_mouse_down(event)

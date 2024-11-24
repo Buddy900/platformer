@@ -17,7 +17,8 @@ class Player:
         # speeds are in pixels per second
         self.mass = 10
         self.friction = 0.2
-        self.x_accel = 1500
+        self.x_accel = 2000
+        self.x_accel_air_mod = 1.2
         self.terminal_x_vel = 480
         self.terminal_y_vel = 900
         self.wall_slide_vel = 200
@@ -25,7 +26,7 @@ class Player:
         self.jump_strength = 800
         self.coyote_time = 0.1
         self.dash_strength = 2400
-        self.dash_length = 0.08
+        self.dash_length = 0.06
         self.dash_cooldown = 0.8
         
         self.recording = False
@@ -45,11 +46,13 @@ class Player:
         self.right = self.left = self.up = self.down = self.jumping = False
         
         self.time_since_dash = 0           # used when the player is currently dashing, and to add a cooldown
+        self.time_since_jump = 0           # used to limit jumps when holding down jump button
         
         self.time_since_touched_floor = self.coyote_time         # time since the floor was last touched (any less than self.coyote_time allows the player to jump)
         self.time_since_touched_wall = self.coyote_time          # time since the wall was last touched (any less than self.coyote_time allows the player to wall jump)
         
         self.wall_jump_dir = 0
+        self.wall_jumping = False
         
         self.platform_touching = None
         self.in_portal = False
@@ -94,19 +97,34 @@ class Player:
             rect = pygame.rect.Rect(self.x - screen_coords[0] + self.width - 10, self.y - screen_coords[1] + self.height - 2 - height, 5, height)
             pygame.draw.rect(self.win, pygame.color.Color("orange"), rect)
         
-    def jump(self, wall_jump=False, override=False):
+    def jump(self, wall_jump=False, auto=False, override=False):
         # jump if touched floor in the last 10 frames (coyote time) or manual override (might be useful)
         # jump height is roughly 172 pixels
-        if self.can_jump or override:
+        jumped = True
+        if (self.can_jump and not auto) or override:
             # normal jump
             self.y_vel = -self.jump_strength
-            self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
+            self.time_since_touched_floor += self.coyote_time    # any less than 0.1 allows player to jump immediately again
+        
+        elif self.can_jump and auto and self.time_since_jump > 0.2:
+            # jump from holding down jump button (limits how fast this can happen)
+            self.y_vel = -self.jump_strength
+            self.time_since_touched_floor += self.coyote_time    # any less than 0.1 allows player to jump immediately again
         
         elif wall_jump and self.can_wall_jump:
             # wall jump
-            self.y_vel = -self.jump_strength
-            self.time_since_touched_floor += self.coyote_time    # any less than 10 allows player to jump immediately again
-            self.x_vel = self.wall_jump_dir * 300
+            self.y_vel = -self.jump_strength * 0.7
+            self.time_since_touched_floor += self.coyote_time    # any less than 0.1 allows player to jump immediately again
+            self.x_vel = self.wall_jump_dir * 500
+            self.wall_jumping = True
+        
+        else: jumped = False
+        if jumped:
+            self.time_since_jump = 0
+    
+    def stop_jump(self):
+        if self.y_vel < 0 and not self.wall_jumping:
+            self.y_vel = 0
     
     def dash(self):
         if self.time_since_dash <= self.dash_cooldown:
@@ -260,47 +278,68 @@ class Player:
         if not safe:
             self.reset()
         
+        
+        x_accel = self.x_accel * self.x_accel_air_mod if not self.can_jump else self.x_accel
+        if self.time_since_dash < self.dash_length:
+            max_speed = self.dash_strength
+        elif self.time_since_dash < self.dash_length + 0.1 and self.time_since_touched_floor > 0.1:
+            max_speed = self.dash_strength / 3
+        elif self.time_since_touched_floor > 0.1:
+            max_speed = max(self.terminal_x_vel, abs(self.x_vel))
+        else:
+            max_speed = max(self.terminal_x_vel, abs(self.x_vel) * 0.9)
+        
+        
         if self.dashing:
             pass
             
         # only change velocity if the player isnt dashing
         # friction - needs to be updated to be physically accurate (friction = friction coefficient * normal force)
-        elif self.right and self.left or not self.right and not self.left:
+        elif self.right and self.left or not self.right and not self.left:  
             # if nothing (or both left + right) is pressed, slow the player to a halt
             if self.x_vel < 0:
-                self.x_vel = min(self.x_vel + (self.x_accel * dt), 0)
+                self.x_vel = min(self.x_vel + (x_accel * dt), 0)
             elif self.x_vel > 0:
-                self.x_vel = max(self.x_vel - (self.x_accel * dt), 0)
+                self.x_vel = max(self.x_vel - (x_accel * dt), 0)
         
         elif self.right:
             # if slowing down, twice the acceleration is used
             if self.x_vel < 0:
-                self.x_vel = min(self.x_vel + (self.x_accel * 2 * dt), self.terminal_x_vel)
+                self.x_vel = min(self.x_vel + (x_accel * 2 * dt), max_speed)
             else:
-                self.x_vel = min(self.x_vel + (self.x_accel * dt), self.terminal_x_vel)
+                self.x_vel = min(self.x_vel + (x_accel * dt), max_speed)
         
         elif self.left:
             # if slowing down, twice the acceleration is used
             if self.x_vel > 0:
-                self.x_vel = max(self.x_vel - (self.x_accel * 2 * dt), -self.terminal_x_vel)
+                self.x_vel = max(self.x_vel - (x_accel * 2 * dt), -max_speed)
             else:
-                self.x_vel = max(self.x_vel - (self.x_accel * dt), -self.terminal_x_vel)
+                self.x_vel = max(self.x_vel - (x_accel * dt), -max_speed)
         
         # terminal x vel
         if not self.dashing and self.x_vel < 0:
-            self.x_vel = max(self.x_vel, -self.terminal_x_vel)
+            self.x_vel = max(self.x_vel, -max_speed)
         elif not self.dashing and self.x_vel > 0:
-            self.x_vel = min(self.x_vel, self.terminal_x_vel)
+            self.x_vel = min(self.x_vel, max_speed)
         
         self.time_since_touched_floor += dt
         self.time_since_touched_wall += dt
         self.time_since_dash += dt
+        self.time_since_jump += dt
         
         # move y vel down
-        self.y_vel = min(self.y_vel + (self.gravity * dt), self.terminal_y_vel)
+        if self.y_vel >= 0:
+            gravity = self.gravity * 2
+            self.wall_jumping = False
+        else:
+            gravity = self.gravity
+        self.y_vel = min(self.y_vel + (gravity * dt), self.terminal_y_vel)
         
         if self.jumping:
-            self.jump()
+            self.jump(auto=True)
+            
+        if self.dashing:
+            self.y_vel = min(0, self.y_vel)
         
         self.platform_touching = None
         dead = self.update_position(platforms, kill_areas, portals, dt)
